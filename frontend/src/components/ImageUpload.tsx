@@ -5,12 +5,8 @@ import {
   IonInput,
   IonItem,
   IonLabel,
-  IonTextarea,
   IonCard,
   IonCardContent,
-  IonGrid,
-  IonRow,
-  IonCol,
   IonToast,
   IonSpinner,
   IonChip,
@@ -22,7 +18,6 @@ import {
   reorderThree, 
   star, 
   starOutline,
-  imageOutline,
   cloudUploadOutline 
 } from 'ionicons/icons'
 import {
@@ -63,14 +58,138 @@ interface ImageUploadProps {
   loading?: boolean
 }
 
-const ImageUpload: React.FC<ImageUploadProps> = ({
+type SortableItemProps = {
+  image: ImageFile;
+  onRemove: (id: string) => void;
+  onSetMain: (id: string) => void;
+  onUpdateAltText: (id: string, altText: string) => void;
+  loading: boolean;
+};
+
+// SortableItem 컴포넌트
+function SortableItem({
+  image,
+  onRemove,
+  onSetMain,
+  onUpdateAltText,
+  loading
+}: SortableItemProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: image.id })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.8 : 1,
+  }
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <IonCard style={{ width: '200px', margin: 0 }}>
+        <IonCardContent style={{ padding: '8px' }}>
+          {/* 이미지 헤더 */}
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
+            marginBottom: '8px'
+          }}>
+            <IonChip 
+              color={image.isMain ? 'primary' : 'medium'}
+            >
+              {image.isMain ? '메인' : `${image.order + 1}번`}
+            </IonChip>
+            
+            <div style={{ display: 'flex', gap: '4px' }}>
+              <IonButton
+                size="small"
+                fill="clear"
+                color={image.isMain ? 'primary' : 'medium'}
+                onClick={() => onSetMain(image.id)}
+                disabled={image.isMain}
+              >
+                <IonIcon icon={image.isMain ? star : starOutline} />
+              </IonButton>
+              
+              <IonButton
+                size="small"
+                fill="clear"
+                color="danger"
+                onClick={() => onRemove(image.id)}
+                disabled={loading}
+              >
+                <IonIcon icon={trash} />
+              </IonButton>
+            </div>
+          </div>
+
+          {/* 드래그 핸들 */}
+          <div
+            {...attributes}
+            {...listeners}
+            style={{ 
+              cursor: 'grab',
+              textAlign: 'center',
+              marginBottom: '8px'
+            }}
+          >
+            <IonIcon icon={reorderThree} color="medium" />
+          </div>
+
+          {/* 이미지 미리보기 */}
+          <div style={{ 
+            width: '100%', 
+            height: '120px', 
+            overflow: 'hidden',
+            borderRadius: '4px',
+            marginBottom: '8px'
+          }}>
+            <img
+              src={image.preview}
+              alt={image.altText}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
+            />
+          </div>
+
+          {/* 이미지 정보 입력 */}
+          <IonItem style={{ '--padding-start': '0', '--padding-end': '0' }}>
+            <IonInput
+              label="설명"
+              value={image.altText}
+              onIonInput={(e) => onUpdateAltText(image.id, e.detail.value!)}
+              placeholder="이미지 설명"
+              style={{ fontSize: '12px' }}
+            />
+          </IonItem>
+
+          {/* 파일 정보 */}
+          <IonNote style={{ fontSize: '10px', color: '#666' }}>
+            {image.file.name} ({(image.file.size / 1024).toFixed(1)}KB)
+          </IonNote>
+        </IonCardContent>
+      </IonCard>
+    </div>
+  )
+}
+
+function ImageUpload({
   images,
   onImagesChange,
   maxImages = 10,
   accept = 'image/*',
   disabled = false,
   loading = false
-}) => {
+}: ImageUploadProps) {
   const [showToast, setShowToast] = useState(false)
   const [toastMessage, setToastMessage] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -89,6 +208,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
 
     for (let i = 0; i < files.length && currentCount + newImages.length < maxImages; i++) {
       const file = files[i]
+      if (!file) continue
       
       // 파일 타입 검증
       if (!file.type.startsWith('image/')) {
@@ -131,7 +251,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     
     // 메인 이미지가 삭제된 경우 첫 번째 이미지를 메인으로 설정
     if (updatedImages.length > 0 && !updatedImages.some(img => img.isMain)) {
-      updatedImages[0].isMain = true
+      const firstImage = updatedImages[0]
+      if (firstImage) {
+        firstImage.isMain = true
+      }
     }
     
     // 순서 재정렬
@@ -243,123 +366,6 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
             disabled={disabled}
           />
 
-// SortableItem 컴포넌트
-const SortableItem: React.FC<{ image: ImageFile; onRemove: (id: string) => void; onSetMain: (id: string) => void; onUpdateAltText: (id: string, altText: string) => void; loading: boolean }> = ({ 
-  image, 
-  onRemove, 
-  onSetMain, 
-  onUpdateAltText, 
-  loading 
-}) => {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: image.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.8 : 1,
-  }
-
-  return (
-    <div ref={setNodeRef} style={style}>
-      <IonCard style={{ width: '200px', margin: 0 }}>
-        <IonCardContent style={{ padding: '8px' }}>
-          {/* 이미지 헤더 */}
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            marginBottom: '8px'
-          }}>
-            <IonChip 
-              size="small" 
-              color={image.isMain ? 'primary' : 'medium'}
-            >
-              {image.isMain ? '메인' : `${image.order + 1}번`}
-            </IonChip>
-            
-            <div style={{ display: 'flex', gap: '4px' }}>
-              <IonButton
-                size="small"
-                fill="clear"
-                color={image.isMain ? 'primary' : 'medium'}
-                onClick={() => onSetMain(image.id)}
-                disabled={image.isMain}
-              >
-                <IonIcon icon={image.isMain ? star : starOutline} />
-              </IonButton>
-              
-              <IonButton
-                size="small"
-                fill="clear"
-                color="danger"
-                onClick={() => onRemove(image.id)}
-                disabled={loading}
-              >
-                <IonIcon icon={trash} />
-              </IonButton>
-            </div>
-          </div>
-
-          {/* 드래그 핸들 */}
-          <div
-            {...attributes}
-            {...listeners}
-            style={{ 
-              cursor: 'grab',
-              textAlign: 'center',
-              marginBottom: '8px'
-            }}
-          >
-            <IonIcon icon={reorderThree} color="medium" />
-          </div>
-
-          {/* 이미지 미리보기 */}
-          <div style={{ 
-            width: '100%', 
-            height: '120px', 
-            overflow: 'hidden',
-            borderRadius: '4px',
-            marginBottom: '8px'
-          }}>
-            <img
-              src={image.preview}
-              alt={image.altText}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-            />
-          </div>
-
-          {/* 이미지 정보 입력 */}
-          <IonItem style={{ '--padding-start': '0', '--padding-end': '0' }}>
-            <IonInput
-              label="설명"
-              value={image.altText}
-              onIonInput={(e) => onUpdateAltText(image.id, e.detail.value!)}
-              placeholder="이미지 설명"
-              style={{ fontSize: '12px' }}
-            />
-          </IonItem>
-
-          {/* 파일 정보 */}
-          <IonNote style={{ fontSize: '10px', color: '#666' }}>
-            {image.file.name} ({(image.file.size / 1024).toFixed(1)}KB)
-          </IonNote>
-        </IonCardContent>
-      </IonCard>
-    </div>
-  )
-}
-
           {/* 이미지 목록 */}
           {images.length > 0 && (
             <DndContext
@@ -385,8 +391,6 @@ const SortableItem: React.FC<{ image: ImageFile; onRemove: (id: string) => void;
                 </div>
               </SortableContext>
             </DndContext>
-          )}
-                            
           )}
 
           {/* 업로드 버튼 */}
